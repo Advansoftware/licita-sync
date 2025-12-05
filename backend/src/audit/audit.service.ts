@@ -72,22 +72,25 @@ export class AuditService {
 
     // Optimization: Batch fetch legacy items using the selected key field
     // keyField corresponds to the property on StagingItem (edital, titulo, processo)
-    // map.edital corresponds to the column in Legacy DB (usually the key column)
-    // NOTE: We assume 'map.edital' is ALWAYS the column we want to match against,
-    // even if we use 'titulo' from staging as the value.
-    // If the user selects "Key Field: Title", they should also map "Legacy Key Column" to the Title column in DB.
-    // So we use `map.edital` as the "Legacy Key Column" variable name.
+    // We need to get the corresponding mapped column from the legacy database
+    const keyColumnMap = {
+      'edital': map.edital,
+      'titulo': map.titulo,
+      'processo': map.edital  // processo usually maps to edital column
+    };
+
+    const legacyKeyColumn = keyColumnMap[keyField] || map.edital;
 
     const keys = stagingItems.map(i => i[keyField]).filter(e => e);
 
     let legacyItems: any[] = [];
     if (keys.length > 0) {
-      // WARNING: Ensure editais are safe strings or use parameterized query carefully.
+      // WARNING: Ensure keys are safe strings or use parameterized query carefully.
       // TypeORM query builder or raw query with IN (?) is tricky with array.
       // We will use string construction for the IN clause but parameterized values.
       const placeholders = keys.map(() => '?').join(',');
       legacyItems = await this.legacyRepo.query(
-        `SELECT * FROM ${tableName} WHERE ${map.edital} IN (${placeholders})`,
+        `SELECT * FROM ${tableName} WHERE ${legacyKeyColumn} IN (${placeholders})`,
         keys
       );
     }
@@ -95,7 +98,7 @@ export class AuditService {
     // Map legacy items by key for O(1) lookup
     const legacyMap = new Map();
     legacyItems.forEach(i => {
-      legacyMap.set(i[map.edital], i);
+      legacyMap.set(i[legacyKeyColumn], i);
     });
 
     for (const item of stagingItems) {
@@ -137,10 +140,19 @@ export class AuditService {
       descricao: mapping?.descricao || 'descricao'
     };
 
+    // Get the correct legacy column based on the selected key field
+    const keyColumnMap = {
+      'edital': map.edital,
+      'titulo': map.titulo,
+      'processo': map.edital
+    };
+
+    const legacyKeyColumn = keyColumnMap[keyField] || map.edital;
+
     // Check existence using dynamic key
     const keyValue = stagingItem[keyField];
     const [legacyItem] = await this.legacyRepo.query(
-      `SELECT * FROM ${tableName} WHERE ${map.edital} = ? LIMIT 1`,
+      `SELECT * FROM ${tableName} WHERE ${legacyKeyColumn} = ? LIMIT 1`,
       [keyValue]
     );
 
