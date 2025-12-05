@@ -22,8 +22,8 @@ export class StagingItem {
   @Column()
   titulo: string;
 
-  @Column({ type: 'text', nullable: true })
-  data: string | null;
+  @Column({ nullable: true })
+  ano: string | null; // Ano da licitação (ex: "2021")
 
   @Column({
     type: 'enum',

@@ -20,6 +20,11 @@ export class AuditController {
     return this.auditService.deleteBatch(batchId);
   }
 
+  @Get('batch/:batchId/years')
+  getBatchYears(@Param('batchId') batchId: string) {
+    return this.auditService.getBatchYears(batchId);
+  }
+
   @Get(':batchId')
   getBatch(
     @Param('batchId') batchId: string,
@@ -29,11 +34,12 @@ export class AuditController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
     @Query('key_field') keyField: string = 'edital',
+    @Query('ano') ano?: string,
   ) {
     const mapping = (edital !== undefined || titulo !== undefined || descricao !== undefined)
       ? { edital, titulo, descricao }
       : undefined;
-    return this.auditService.getBatch(batchId, mapping, page, limit, keyField);
+    return this.auditService.getBatch(batchId, mapping, page, limit, keyField, ano);
   }
 
   @Patch('sync/:id')

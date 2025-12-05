@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   AlertTriangle,
   Info,
+  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -22,6 +23,7 @@ interface AuditItem {
     edital: string;
     status: string;
     processo: string;
+    ano?: string;
   };
   legacy: {
     id: number;
@@ -52,6 +54,10 @@ export default function ReviewPage({
     "first" | "last" | null
   >(null);
 
+  // Year filter state
+  const [availableYears, setAvailableYears] = useState<string[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
+
   const mapping = {
     edital: searchParams.get("map_edital") ?? undefined,
     titulo: searchParams.get("map_titulo") ?? undefined,
@@ -59,24 +65,61 @@ export default function ReviewPage({
   };
   const keyField = searchParams.get("key_field") ?? "edital";
 
+  // Track if years have been loaded
+  const [yearsLoaded, setYearsLoaded] = useState(false);
+
   console.log("DEBUG - Frontend mapping:", mapping);
   console.log("DEBUG - Frontend keyField:", keyField);
 
+  // Fetch available years for this batch
   useEffect(() => {
-    fetchItems(1);
+    const fetchYears = async () => {
+      try {
+        const res = await axios.get(
+          `${
+            process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+          }/audit/batch/${resolvedParams.batchId}/years`
+        );
+        const years = res.data || [];
+        setAvailableYears(years);
+        // Select the most recent year by default (last in sorted array)
+        if (years.length > 0) {
+          setSelectedYear(years[years.length - 1]);
+        }
+        setYearsLoaded(true);
+      } catch (error) {
+        console.error("Failed to fetch years", error);
+        setYearsLoaded(true); // Continue even if years fetch fails
+      }
+    };
+    fetchYears();
   }, [resolvedParams.batchId]);
+
+  // Fetch items after years are loaded
+  useEffect(() => {
+    if (yearsLoaded) {
+      fetchItems(1);
+    }
+  }, [yearsLoaded, selectedYear]);
 
   const fetchItems = async (page = pagination.page) => {
     setIsLoading(true);
     try {
-      const query = new URLSearchParams({
+      const queryParams: Record<string, string> = {
         map_edital: mapping.edital || "",
         map_titulo: mapping.titulo || "",
         map_descricao: mapping.descricao || "",
         page: page.toString(),
         limit: pagination.limit.toString(),
         key_field: keyField,
-      }).toString();
+      };
+
+      // Add year filter if selected
+      if (selectedYear) {
+        queryParams.ano = selectedYear;
+      }
+
+      const query = new URLSearchParams(queryParams).toString();
 
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/audit/${
@@ -211,6 +254,7 @@ export default function ReviewPage({
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Total: {pagination.total} itens
+            {selectedYear && ` em ${selectedYear}`}
           </p>
           <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
             <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono">
@@ -222,6 +266,53 @@ export default function ReviewPage({
             <span className="ml-1">para navegar</span>
           </p>
         </div>
+
+        {/* Year Tabs */}
+        {availableYears.length > 1 && (
+          <div className="p-2 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center gap-1 mb-1">
+              <Calendar className="w-3 h-3 text-gray-500" />
+              <span className="text-xs text-gray-500 font-medium">
+                Filtrar por ano:
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => {
+                  setSelectedYear(null);
+                  setSelectedItemId(null);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
+                className={clsx(
+                  "px-2 py-1 text-xs font-medium rounded transition-colors",
+                  selectedYear === null
+                    ? "bg-blue-600 text-white"
+                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                )}
+              >
+                Todos
+              </button>
+              {availableYears.map((year) => (
+                <button
+                  key={year}
+                  onClick={() => {
+                    setSelectedYear(year);
+                    setSelectedItemId(null);
+                    setPagination((prev) => ({ ...prev, page: 1 }));
+                  }}
+                  className={clsx(
+                    "px-2 py-1 text-xs font-medium rounded transition-colors",
+                    selectedYear === year
+                      ? "bg-blue-600 text-white"
+                      : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                  )}
+                >
+                  {year}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Mapping Status Banner */}
         {!mapping.edital ? (

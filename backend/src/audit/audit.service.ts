@@ -26,6 +26,19 @@ export class AuditService {
     return batches;
   }
 
+  async getBatchYears(batchId: string) {
+    // Get distinct years for a batch
+    const years = await this.stagingRepo
+      .createQueryBuilder('item')
+      .select('DISTINCT item.ano', 'ano')
+      .where('item.batchId = :batchId', { batchId })
+      .andWhere('item.ano IS NOT NULL')
+      .orderBy('item.ano', 'ASC')
+      .getRawMany();
+
+    return years.map(y => y.ano).filter(Boolean);
+  }
+
   async getLegacyColumns() {
     const tableName = process.env.LEGACY_TABLE_NAME || 'licitacoes';
     const columns = await this.legacyRepo.query(`DESCRIBE ${tableName}`);
@@ -42,13 +55,20 @@ export class AuditService {
     mapping?: { edital?: string; titulo?: string; descricao?: string },
     page: number = 1,
     limit: number = 20,
-    keyField: string = 'edital'
+    keyField: string = 'edital',
+    ano?: string
   ) {
     const skip = (page - 1) * limit;
 
+    // Build query with optional year filter
+    const whereCondition: any = { batchId };
+    if (ano) {
+      whereCondition.ano = ano;
+    }
+
     // Fetch paginated staging items, sorted by Status (PENDING first) then ID
     const [stagingItems, total] = await this.stagingRepo.findAndCount({
-      where: { batchId },
+      where: whereCondition,
       order: {
         status: 'ASC', // PENDING comes before SYNCED alphabetically? No, PENDING vs SYNCED. P < S. So ASC is correct.
         id: 'ASC'

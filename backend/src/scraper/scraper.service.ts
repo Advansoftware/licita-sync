@@ -14,15 +14,90 @@ export class ScraperService {
   ) { }
 
   async run(url: string, selectors?: { container?: string; edital?: string; descricao?: string; titulo?: string }) {
-    const { data } = await axios.get(url);
-    const $ = cheerio.load(data);
-
-    // Generate human-readable batchId from URL
     const urlObj = new URL(url);
     const tipo = urlObj.searchParams.get('p') || 'licitacao';
-    const ano = urlObj.searchParams.get('ano') || 'sem_ano';
+    const anoParam = urlObj.searchParams.get('ano');
+
+    // Se não tem ano na URL, detecta todos os anos disponíveis e faz scraping de cada
+    if (!anoParam) {
+      return this.runMultiYear(url, tipo, selectors);
+    }
+
+    // Se tem ano, faz scraping normal de uma única página
+    return this.scrapeSinglePage(url, tipo, anoParam, selectors);
+  }
+
+  private async runMultiYear(baseUrl: string, tipo: string, selectors?: { container?: string; edital?: string; descricao?: string; titulo?: string }) {
+    const { data } = await axios.get(baseUrl);
+    const $ = cheerio.load(data);
+
+    // Extrair todos os anos disponíveis dos links .btmenu
+    const years: string[] = [];
+    $('a.btmenu').each((_, el) => {
+      const href = $(el).attr('href') || '';
+      const yearMatch = href.match(/ano=(\d{4})/);
+      if (yearMatch && !years.includes(yearMatch[1])) {
+        years.push(yearMatch[1]);
+      }
+    });
+
+    console.log(`Detected years: ${years.join(', ')}`);
+
+    if (years.length === 0) {
+      // Fallback: scrape a página atual sem ano
+      return this.scrapeSinglePage(baseUrl, tipo, null, selectors);
+    }
+
+    // Gerar batchId único para todos os anos
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const batchId = `${tipo}_${ano}_${timestamp}`;
+    const batchId = `${tipo}_todos_${timestamp}`;
+
+    const allItems: StagingItem[] = [];
+    const urlObj = new URL(baseUrl);
+
+    // Fazer scraping de cada ano
+    for (const year of years) {
+      urlObj.searchParams.set('ano', year);
+      const yearUrl = urlObj.toString();
+
+      console.log(`Scraping year ${year}: ${yearUrl}`);
+
+      try {
+        const items = await this.scrapePageItems(yearUrl, batchId, year, selectors);
+        allItems.push(...items);
+        console.log(`  Found ${items.length} items for year ${year}`);
+      } catch (error) {
+        console.error(`  Error scraping year ${year}:`, error.message);
+      }
+    }
+
+    console.log(`Total items scraped across all years: ${allItems.length}`);
+
+    if (allItems.length > 0) {
+      return this.stagingRepo.save(allItems);
+    }
+
+    return [];
+  }
+
+  private async scrapeSinglePage(url: string, tipo: string, ano: string | null, selectors?: { container?: string; edital?: string; descricao?: string; titulo?: string }) {
+    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const batchId = `${tipo}_${ano || 'sem_ano'}_${timestamp}`;
+
+    const items = await this.scrapePageItems(url, batchId, ano, selectors);
+
+    console.log(`Total items scraped: ${items.length}`);
+
+    if (items.length > 0) {
+      return this.stagingRepo.save(items);
+    }
+
+    return [];
+  }
+
+  private async scrapePageItems(url: string, batchId: string, ano: string | null, selectors?: { container?: string; edital?: string; descricao?: string; titulo?: string }): Promise<StagingItem[]> {
+    const { data } = await axios.get(url);
+    const $ = cheerio.load(data);
 
     const items: StagingItem[] = [];
 
@@ -77,7 +152,7 @@ export class ScraperService {
         item.descricao = descricaoText || '[SEM DESCRIÇÃO]'; // Marca quando não tem
         item.batchId = batchId;
         item.status = AuditStatus.PENDING;
-        item.data = ano || null;
+        item.ano = ano || null;
         item.sourceUrl = url;
         items.push(item);
         console.log('  ✓ Item added to batch');
@@ -86,8 +161,7 @@ export class ScraperService {
       }
     });
 
-    console.log(`Total items scraped: ${items.length}`);
-    return this.stagingRepo.save(items);
+    return items;
   }
 
   async preview(url: string) {
