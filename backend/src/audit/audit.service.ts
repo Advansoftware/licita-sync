@@ -154,12 +154,23 @@ export class AuditService {
 
       console.log(`  Staging: ${keyField}="${keyValue}" => Legacy: ${normalizedLegacy ? normalizedLegacy.titulo : 'NULL'}`);
 
+      // Check if there are any differences
+      const hasDiff = !normalizedLegacy ||
+        normalizedLegacy.descricao !== item.descricao ||
+        normalizedLegacy.titulo !== item.titulo;
+
+      // Auto-mark as SYNCED if legacy exists and there are no differences
+      // Only update if current status is PENDING
+      if (normalizedLegacy && !hasDiff && item.status === AuditStatus.PENDING) {
+        await this.stagingRepo.update(item.id, { status: AuditStatus.SYNCED });
+        item.status = AuditStatus.SYNCED;
+        console.log(`  Auto-marked as SYNCED (no diff): ${keyField}="${keyValue}"`);
+      }
+
       results.push({
         staging: item,
         legacy: normalizedLegacy,
-        diff: !normalizedLegacy ||
-          normalizedLegacy.descricao !== item.descricao ||
-          normalizedLegacy.titulo !== item.titulo
+        diff: hasDiff
       });
     }
 
