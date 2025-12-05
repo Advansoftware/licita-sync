@@ -4,8 +4,6 @@
 services:
   backend:
     network_mode: host
-    ports: []  # Remove port mapping when using host mode
-    networks: []  # Remove networks when using host mode
     environment:
       - DATABASE_HOST=localhost
       - PORT=5001
