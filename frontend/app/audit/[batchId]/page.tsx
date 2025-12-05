@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useCallback } from "react";
+import { useState, useEffect, use, useCallback, useRef } from "react";
 import axios from "axios";
 import { DiffViewer } from "@/components/DiffViewer";
 import {
@@ -47,6 +47,10 @@ export default function ReviewPage({
     limit: 20,
     total: 0,
   });
+  const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const [pendingNavigation, setPendingNavigation] = useState<
+    "first" | "last" | null
+  >(null);
 
   const mapping = {
     edital: searchParams.get("map_edital") ?? undefined,
@@ -92,6 +96,8 @@ export default function ReviewPage({
       if (data.length > 0 && !selectedItemId) {
         setSelectedItemId(data[0].staging.id);
       }
+
+      return data;
     } catch (error) {
       console.error("Failed to fetch items", error);
     } finally {
@@ -101,25 +107,64 @@ export default function ReviewPage({
 
   const selectedItem = items.find((i) => i.staging.id === selectedItemId);
 
+  const totalPages = Math.ceil(pagination.total / pagination.limit);
+
+  // Scroll to selected item when it changes
+  useEffect(() => {
+    if (selectedItemId) {
+      const element = itemRefs.current.get(selectedItemId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [selectedItemId]);
+
+  // Handle pending navigation after page change
+  useEffect(() => {
+    if (pendingNavigation && items.length > 0) {
+      if (pendingNavigation === "first") {
+        setSelectedItemId(items[0].staging.id);
+      } else if (pendingNavigation === "last") {
+        setSelectedItemId(items[items.length - 1].staging.id);
+      }
+      setPendingNavigation(null);
+    }
+  }, [items, pendingNavigation]);
+
   // Keyboard navigation: Arrow Left/Right to navigate between items
   const navigateItems = useCallback(
-    (direction: "prev" | "next") => {
+    async (direction: "prev" | "next") => {
       if (items.length === 0) return;
 
       const currentIndex = items.findIndex(
         (i) => i.staging.id === selectedItemId
       );
-      let newIndex: number;
 
       if (direction === "prev") {
-        newIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
+        if (currentIndex <= 0) {
+          // At first item, go to previous page if exists
+          if (pagination.page > 1) {
+            setPendingNavigation("last");
+            fetchItems(pagination.page - 1);
+          }
+          // If on first page, do nothing (don't wrap around)
+          return;
+        }
+        setSelectedItemId(items[currentIndex - 1].staging.id);
       } else {
-        newIndex = currentIndex >= items.length - 1 ? 0 : currentIndex + 1;
+        if (currentIndex >= items.length - 1) {
+          // At last item, go to next page if exists
+          if (pagination.page < totalPages) {
+            setPendingNavigation("first");
+            fetchItems(pagination.page + 1);
+          }
+          // If on last page, do nothing (don't wrap around)
+          return;
+        }
+        setSelectedItemId(items[currentIndex + 1].staging.id);
       }
-
-      setSelectedItemId(items[newIndex].staging.id);
     },
-    [items, selectedItemId]
+    [items, selectedItemId, pagination.page, totalPages]
   );
 
   useEffect(() => {
@@ -239,6 +284,13 @@ export default function ReviewPage({
           {items.map((item) => (
             <button
               key={item.staging.id}
+              ref={(el) => {
+                if (el) {
+                  itemRefs.current.set(item.staging.id, el);
+                } else {
+                  itemRefs.current.delete(item.staging.id);
+                }
+              }}
               onClick={() => setSelectedItemId(item.staging.id)}
               className={clsx(
                 "w-full text-left p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors flex items-start gap-3",
