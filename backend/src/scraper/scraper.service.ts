@@ -35,12 +35,12 @@ export class ScraperService {
       const container = $(element);
 
       // titulo = summary (ex: "Processo Licitatório 004/2017")
-      const tituloText = container.find(tituloSelector).text().trim();
+      const tituloText = container.find(tituloSelector).first().text().trim();
 
-      // edital = h4 (ex: "Edital - nº 001/2017")
-      const editalText = container.find(editalSelector).text().trim();
+      // edital = h4 ou h2 (ex: "Edital - nº 001/2017" ou "Pregão Eletrônico 003/2021")
+      const editalText = container.find(editalSelector).first().text().trim();
 
-      // descricao = first p tag (ex: "Objeto o registro de preços...")
+      // descricao = first matching tag (ex: "Objeto o registro de preços...")
       const descricaoText = container.find(descricaoSelector).first().text().trim();
 
       console.log('DEBUG - Container found');
