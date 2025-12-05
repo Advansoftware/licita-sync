@@ -22,10 +22,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: licita_backend
-    ports:
-      - "5001:3000"
+    network_mode: host
     environment:
-      - DATABASE_HOST=postgres
+      - DATABASE_HOST=localhost
       - DATABASE_PORT=5432
       - DATABASE_USER=user
       - DATABASE_PASSWORD=password
@@ -38,11 +37,9 @@ services:
       - LEGACY_DB_PASSWORD=0PmW%%ViB$$@; # $ escaped as $$
       - LEGACY_DB_NAME=wwbraz_prefeitura
       - LEGACY_TABLE_NAME=licitacao
+      - PORT=5001
     depends_on:
       - postgres
-      # - mysql # Removido pois agora usamos banco externo
-    networks:
-      - licita-network
 
   frontend:
     build:
