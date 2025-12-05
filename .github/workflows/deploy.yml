@@ -37,7 +37,7 @@ jobs:
             cp .env.production .env
 
             echo "🔧 Recriando containers com build limpo..."
-            docker compose up -d --build
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
             echo "🧹 Limpando imagens e cache antigas..."
             docker image prune -af

@@ -1,0 +1,11 @@
+# Production Override
+# Use: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+services:
+  backend:
+    network_mode: host
+    ports: []  # Remove port mapping when using host mode
+    networks: []  # Remove networks when using host mode
+    environment:
+      - DATABASE_HOST=localhost
+      - PORT=5001
