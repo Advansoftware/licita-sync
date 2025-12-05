@@ -41,8 +41,6 @@ services:
       - PORT=${BACKEND_PORT:-3000}
     depends_on:
       - postgres
-    networks:
-      - licita-network
 
   frontend:
     build:

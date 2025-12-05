@@ -4,7 +4,8 @@ This project supports both development and production environments using differe
 
 ## Available Files
 
-- **`docker-compose.yml`** - Base configuration (optimized for development)
+- **`docker-compose.yml`** - Base configuration (minimal, no networks for backend)
+- **`docker-compose.dev.yml`** - Development overrides (adds backend to network)
 - **`docker-compose.prod.yml`** - Production overrides (uses host network mode)
 - **`.env.development`** - Development environment variables
 - **`.env.production`** - Production environment variables
@@ -17,8 +18,8 @@ This project supports both development and production environments using differe
 # Copy the development environment file
 cp .env.development .env
 
-# Start the containers (uses base docker-compose.yml)
-docker compose up -d --build
+# Start the containers with development overrides
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 ```
 
 **Development URLs:**

@@ -1,0 +1,8 @@
+# Development Override (optional)
+# Use: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+# Or just: docker compose up -d --build (this file adds networks back for local dev)
+
+services:
+  backend:
+    networks:
+      - licita-network
