@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StagingItem, AuditStatus } from './entities/staging-item.entity';
 import { LegacyLicitacao } from './entities/legacy-licitacao.entity';
+import { BatchConfig } from './entities/batch-config.entity';
 
 @Injectable()
 export class AuditService {
@@ -11,10 +12,48 @@ export class AuditService {
     private stagingRepo: Repository<StagingItem>,
     @InjectRepository(LegacyLicitacao, 'legacy')
     private legacyRepo: Repository<LegacyLicitacao>,
+    @InjectRepository(BatchConfig)
+    private batchConfigRepo: Repository<BatchConfig>,
   ) { }
 
+  async getBatchConfig(batchId: string) {
+    const config = await this.batchConfigRepo.findOne({ where: { batchId } });
+    return config;
+  }
+
+  async saveBatchConfig(batchId: string, config: {
+    keyField: string;
+    mapEdital: string;
+    mapTitulo?: string;
+    mapDescricao?: string;
+    sourceUrl?: string;
+  }) {
+    let existing = await this.batchConfigRepo.findOne({ where: { batchId } });
+
+    if (existing) {
+      // Update existing
+      existing.keyField = config.keyField;
+      existing.mapEdital = config.mapEdital;
+      existing.mapTitulo = config.mapTitulo || null;
+      existing.mapDescricao = config.mapDescricao || null;
+      if (config.sourceUrl) existing.sourceUrl = config.sourceUrl;
+      return this.batchConfigRepo.save(existing);
+    } else {
+      // Create new
+      const newConfig = this.batchConfigRepo.create({
+        batchId,
+        keyField: config.keyField,
+        mapEdital: config.mapEdital,
+        mapTitulo: config.mapTitulo || null,
+        mapDescricao: config.mapDescricao || null,
+        sourceUrl: config.sourceUrl || null,
+      });
+      return this.batchConfigRepo.save(newConfig);
+    }
+  }
+
   async getBatches() {
-    // Get distinct batchIds with their sourceUrl (from the first item of each batch)
+    // Get distinct batchIds with their sourceUrl and config
     // Order by most recent first (MAX createdAt)
     const batches = await this.stagingRepo
       .createQueryBuilder('item')
@@ -26,7 +65,24 @@ export class AuditService {
       .orderBy('MAX(item.createdAt)', 'DESC')
       .getRawMany();
 
-    return batches;
+    // Add config info to each batch
+    const batchesWithConfig = await Promise.all(
+      batches.map(async (batch) => {
+        const config = await this.batchConfigRepo.findOne({ where: { batchId: batch.batchId } });
+        return {
+          ...batch,
+          hasConfig: !!config,
+          config: config ? {
+            keyField: config.keyField,
+            mapEdital: config.mapEdital,
+            mapTitulo: config.mapTitulo,
+            mapDescricao: config.mapDescricao,
+          } : null,
+        };
+      })
+    );
+
+    return batchesWithConfig;
   }
 
   async getBatchYears(batchId: string) {

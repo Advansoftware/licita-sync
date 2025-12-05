@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Delete, Param, Body, Query } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Delete, Param, Body, Query } from '@nestjs/common';
 import { AuditService } from './audit.service';
 
 @Controller('audit')
@@ -18,6 +18,25 @@ export class AuditController {
   @Delete('batch/:batchId')
   deleteBatch(@Param('batchId') batchId: string) {
     return this.auditService.deleteBatch(batchId);
+  }
+
+  @Get('batch/:batchId/config')
+  getBatchConfig(@Param('batchId') batchId: string) {
+    return this.auditService.getBatchConfig(batchId);
+  }
+
+  @Post('batch/:batchId/config')
+  saveBatchConfig(
+    @Param('batchId') batchId: string,
+    @Body() config: {
+      keyField: string;
+      mapEdital: string;
+      mapTitulo?: string;
+      mapDescricao?: string;
+      sourceUrl?: string;
+    }
+  ) {
+    return this.auditService.saveBatchConfig(batchId, config);
   }
 
   @Get('batch/:batchId/years')

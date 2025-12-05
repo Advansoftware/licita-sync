@@ -4,10 +4,11 @@ import { AuditService } from './audit.service';
 import { AuditController } from './audit.controller';
 import { StagingItem } from './entities/staging-item.entity';
 import { LegacyLicitacao } from './entities/legacy-licitacao.entity';
+import { BatchConfig } from './entities/batch-config.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([StagingItem]), // Default connection
+    TypeOrmModule.forFeature([StagingItem, BatchConfig]), // Default connection
     TypeOrmModule.forFeature([LegacyLicitacao], 'legacy'), // Legacy connection
   ],
   controllers: [AuditController],

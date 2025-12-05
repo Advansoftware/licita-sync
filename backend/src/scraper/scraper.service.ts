@@ -74,10 +74,10 @@ export class ScraperService {
     console.log(`Total items scraped across all years: ${allItems.length}`);
 
     if (allItems.length > 0) {
-      return this.stagingRepo.save(allItems);
+      await this.stagingRepo.save(allItems);
     }
 
-    return [];
+    return { batchId, count: allItems.length, items: allItems };
   }
 
   private async scrapeSinglePage(url: string, tipo: string, ano: string | null, selectors?: { container?: string; edital?: string; descricao?: string; titulo?: string }) {
@@ -89,10 +89,10 @@ export class ScraperService {
     console.log(`Total items scraped: ${items.length}`);
 
     if (items.length > 0) {
-      return this.stagingRepo.save(items);
+      await this.stagingRepo.save(items);
     }
 
-    return [];
+    return { batchId, count: items.length, items };
   }
 
   private async scrapePageItems(url: string, batchId: string, ano: string | null, selectors?: { container?: string; edital?: string; descricao?: string; titulo?: string }): Promise<StagingItem[]> {
