@@ -25,7 +25,6 @@ export default function Dashboard() {
     descricao: "h3",
     titulo: "summary",
   });
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [keyField, setKeyField] = useState("edital");
   const [showHtmlPreview, setShowHtmlPreview] = useState(false);
   const [htmlPreview, setHtmlPreview] = useState("");
@@ -177,79 +176,71 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-            >
-              {showAdvanced
-                ? "Ocultar Opções Avançadas"
-                : "Mostrar Opções Avançadas (Seletores)"}
-            </button>
-
-            {showAdvanced && (
-              <div className="mt-4 grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
-                    Container (Item)
-                  </label>
-                  <input
-                    type="text"
-                    value={selectors.container}
-                    onChange={(e) =>
-                      setSelectors({ ...selectors, container: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm text-gray-900"
-                    placeholder="ex: details"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
-                    Seletor de Título
-                  </label>
-                  <input
-                    type="text"
-                    value={selectors.titulo}
-                    onChange={(e) =>
-                      setSelectors({ ...selectors, titulo: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm text-gray-900"
-                    placeholder="ex: summary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
-                    Seletor de Edital
-                  </label>
-                  <input
-                    type="text"
-                    value={selectors.edital}
-                    onChange={(e) =>
-                      setSelectors({ ...selectors, edital: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm text-gray-900"
-                    placeholder="ex: h2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
-                    Seletor de Descrição
-                  </label>
-                  <input
-                    type="text"
-                    value={selectors.descricao}
-                    onChange={(e) =>
-                      setSelectors({ ...selectors, descricao: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm text-gray-900"
-                    placeholder="ex: h3"
-                  />
-                </div>
-                <div className="col-span-2 text-xs text-gray-700">
-                  * Os seletores internos (Título, Edital, Descrição) são
-                  buscados DENTRO do Container.
-                </div>
+            <div className="mt-4 grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h3 className="col-span-2 text-sm font-semibold text-gray-900">
+                Seletores CSS
+              </h3>
+              <div>
+                <label className="block text-xs font-medium text-gray-900 mb-1">
+                  Container (Item)
+                </label>
+                <input
+                  type="text"
+                  value={selectors.container}
+                  onChange={(e) =>
+                    setSelectors({ ...selectors, container: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded text-sm text-gray-900"
+                  placeholder="ex: details"
+                />
               </div>
-            )}
+              <div>
+                <label className="block text-xs font-medium text-gray-900 mb-1">
+                  Seletor de Título
+                </label>
+                <input
+                  type="text"
+                  value={selectors.titulo}
+                  onChange={(e) =>
+                    setSelectors({ ...selectors, titulo: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded text-sm text-gray-900"
+                  placeholder="ex: summary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-900 mb-1">
+                  Seletor de Edital
+                </label>
+                <input
+                  type="text"
+                  value={selectors.edital}
+                  onChange={(e) =>
+                    setSelectors({ ...selectors, edital: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded text-sm text-gray-900"
+                  placeholder="ex: h2"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-900 mb-1">
+                  Seletor de Descrição
+                </label>
+                <input
+                  type="text"
+                  value={selectors.descricao}
+                  onChange={(e) =>
+                    setSelectors({ ...selectors, descricao: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded text-sm text-gray-900"
+                  placeholder="ex: h3"
+                />
+              </div>
+              <div className="col-span-2 text-xs text-gray-700">
+                * Os seletores internos (Título, Edital, Descrição) são buscados
+                DENTRO do Container.
+              </div>
+            </div>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -812,11 +803,14 @@ export default function Dashboard() {
                 <button
                   onClick={() => {
                     setShowHtmlPreview(false);
-                    setShowAdvanced(true);
+                    // Scroll para os seletores
+                    document
+                      .querySelector("h3")
+                      ?.scrollIntoView({ behavior: "smooth", block: "center" });
                   }}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
-                  Ir para Opções Avançadas
+                  Ir para Seletores
                 </button>
               </div>
             </div>
