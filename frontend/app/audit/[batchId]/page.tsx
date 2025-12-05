@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import axios from "axios";
 import { DiffViewer } from "@/components/DiffViewer";
 import {
@@ -101,6 +101,50 @@ export default function ReviewPage({
 
   const selectedItem = items.find((i) => i.staging.id === selectedItemId);
 
+  // Keyboard navigation: Arrow Left/Right to navigate between items
+  const navigateItems = useCallback(
+    (direction: "prev" | "next") => {
+      if (items.length === 0) return;
+
+      const currentIndex = items.findIndex(
+        (i) => i.staging.id === selectedItemId
+      );
+      let newIndex: number;
+
+      if (direction === "prev") {
+        newIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
+      } else {
+        newIndex = currentIndex >= items.length - 1 ? 0 : currentIndex + 1;
+      }
+
+      setSelectedItemId(items[newIndex].staging.id);
+    },
+    [items, selectedItemId]
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't navigate if user is typing in an input/textarea
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        navigateItems("prev");
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        navigateItems("next");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [navigateItems]);
+
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar */}
@@ -122,6 +166,15 @@ export default function ReviewPage({
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Total: {pagination.total} itens
+          </p>
+          <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono">
+              ←
+            </kbd>
+            <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono">
+              →
+            </kbd>
+            <span className="ml-1">para navegar</span>
           </p>
         </div>
 
