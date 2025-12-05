@@ -124,6 +124,8 @@ export class AuditService {
         edital: legacyItem[map.edital]
       } : null;
 
+      console.log(`  Staging: ${keyField}="${keyValue}" => Legacy: ${normalizedLegacy ? normalizedLegacy.titulo : 'NULL'}`);
+
       results.push({
         staging: item,
         legacy: normalizedLegacy,
