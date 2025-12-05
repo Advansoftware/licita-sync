@@ -98,7 +98,7 @@ export default function Dashboard() {
         }/scraper/run`,
         {
           url,
-          selectors: showAdvanced ? selectors : undefined,
+          selectors, // Sempre envia os seletores (usam valores padrão do state)
         }
       );
       setUrl("");
