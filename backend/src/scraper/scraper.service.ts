@@ -60,12 +60,20 @@ export class ScraperService {
         }
       }
 
-      // Salva mesmo sem descrição para debug
-      if (edital && tituloText) {
+      // Se ainda não temos edital, tenta extrair do título (ex: "Processo Licitatório 165/2021")
+      if (!edital && tituloText) {
+        const tituloMatch = tituloText.match(/(\d+\/\d+)/);
+        if (tituloMatch) {
+          edital = tituloMatch[1];
+        }
+      }
+
+      // Salva se temos pelo menos o título
+      if (tituloText) {
         const item = new StagingItem();
         item.processo = tituloText; // Processo Licitatório 004/2017
         item.titulo = tituloText;   // Processo Licitatório 004/2017
-        item.edital = edital;       // 001/2017
+        item.edital = edital || '[SEM EDITAL]'; // Marca quando não tem
         item.descricao = descricaoText || '[SEM DESCRIÇÃO]'; // Marca quando não tem
         item.batchId = batchId;
         item.status = AuditStatus.PENDING;
@@ -74,7 +82,7 @@ export class ScraperService {
         items.push(item);
         console.log('  ✓ Item added to batch');
       } else {
-        console.log('  ✗ Item skipped - missing edital or titulo');
+        console.log('  ✗ Item skipped - missing titulo');
       }
     });
 
