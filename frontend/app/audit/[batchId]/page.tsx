@@ -56,11 +56,23 @@ export default function ReviewPage({
   >(null);
   const pendingNavigationRef = useRef<"first" | "last" | null>(null);
 
-  // Track if all editable items are complete
+  // Track if all editable items are complete (entire batch, not just current year)
   const [allEditableComplete, setAllEditableComplete] = useState(false);
+  const [batchStatus, setBatchStatus] = useState<{
+    total: number;
+    pending: number;
+    synced: number;
+    allComplete: boolean;
+  } | null>(null);
 
-  // Year filter state
-  const [availableYears, setAvailableYears] = useState<string[]>([]);
+  // Year filter state with completion status
+  interface YearStatus {
+    ano: string;
+    total: number;
+    synced: number;
+    complete: boolean;
+  }
+  const [availableYears, setAvailableYears] = useState<YearStatus[]>([]);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
 
   const mapping = {
@@ -77,28 +89,40 @@ export default function ReviewPage({
   console.log("DEBUG - Frontend keyField:", keyField);
 
   // Fetch available years for this batch
-  useEffect(() => {
-    const fetchYears = async () => {
-      try {
-        const res = await axios.get(
-          `${
-            process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
-          }/audit/batch/${resolvedParams.batchId}/years`
-        );
-        const years = res.data || [];
-        setAvailableYears(years);
-        // Select the most recent year by default (last in sorted array)
-        if (years.length > 0) {
-          setSelectedYear(years[years.length - 1]);
-        }
-        setYearsLoaded(true);
-      } catch (error) {
-        console.error("Failed to fetch years", error);
-        setYearsLoaded(true); // Continue even if years fetch fails
+  const fetchYears = useCallback(async () => {
+    try {
+      const res = await axios.get(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+        }/audit/batch/${resolvedParams.batchId}/years`
+      );
+      const years: YearStatus[] = res.data || [];
+      setAvailableYears(years);
+
+      // Select the first incomplete year, or the most recent if all complete
+      const firstIncomplete = years.find((y) => !y.complete);
+      if (firstIncomplete) {
+        setSelectedYear(firstIncomplete.ano);
+      } else if (years.length > 0) {
+        setSelectedYear(years[years.length - 1].ano);
       }
-    };
-    fetchYears();
+      setYearsLoaded(true);
+
+      // Check if all years are complete
+      const allComplete = years.length > 0 && years.every((y) => y.complete);
+      setAllEditableComplete(allComplete);
+
+      return years;
+    } catch (error) {
+      console.error("Failed to fetch years", error);
+      setYearsLoaded(true);
+      return [];
+    }
   }, [resolvedParams.batchId]);
+
+  useEffect(() => {
+    fetchYears();
+  }, [fetchYears]);
 
   // Fetch items after years are loaded
   useEffect(() => {
@@ -141,15 +165,33 @@ export default function ReviewPage({
       setItems(data);
       setPagination((prev) => ({ ...prev, ...meta, page }));
 
-      // Only auto-select first item if no pending navigation and no item selected
-      // This prevents overriding the pendingNavigation selection
-      // Use ref to get current value (closure issue with state)
+      // Auto-select item with priority:
+      // 1. First PENDING item (has legacy and not SYNCED)
+      // 2. First item without legacy (needs resolution)
+      // 3. First item (all complete)
       if (data.length > 0 && !selectedItemId && !pendingNavigationRef.current) {
-        setSelectedItemId(data[0].staging.id);
+        // Priority 1: First pending item (has legacy and not synced)
+        const firstPending = data.find(
+          (i: AuditItem) => i.legacy !== null && i.staging.status !== "SYNCED"
+        );
+
+        if (firstPending) {
+          setSelectedItemId(firstPending.staging.id);
+        } else {
+          // Priority 2: First item without legacy (needs resolution)
+          const firstMissing = data.find((i: AuditItem) => i.legacy === null);
+
+          if (firstMissing) {
+            setSelectedItemId(firstMissing.staging.id);
+          } else {
+            // Priority 3: All complete, just select first
+            setSelectedItemId(data[0].staging.id);
+          }
+        }
       }
 
       // Check if all editable items are complete
-      checkAllEditableComplete(data);
+      checkAllEditableComplete();
 
       return data;
     } catch (error) {
@@ -159,43 +201,65 @@ export default function ReviewPage({
     }
   };
 
-  // Check if all items with legacy (editable) are complete
-  const checkAllEditableComplete = (currentItems: AuditItem[]) => {
-    const editableItems = currentItems.filter((item) => item.legacy !== null);
-    const allComplete =
-      editableItems.length > 0 &&
-      editableItems.every((item) => item.staging.status === "SYNCED");
-    setAllEditableComplete(allComplete);
-  };
+  // Check if all items in the entire batch are complete (not just current year/page)
+  const checkAllEditableComplete = useCallback(async () => {
+    try {
+      const res = await axios.get(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+        }/audit/batch/${resolvedParams.batchId}/status`
+      );
+      setBatchStatus(res.data);
+      setAllEditableComplete(res.data.allComplete);
+    } catch (error) {
+      console.error("Failed to fetch batch status", error);
+    }
+  }, [resolvedParams.batchId]);
 
   // Find and navigate to next pending item (has legacy and not synced)
-  const navigateToNextPending = useCallback(() => {
-    // First, look for pending items in current page after current selection
-    const currentIndex = items.findIndex(
-      (i) => i.staging.id === selectedItemId
+  // Also reorder the list to move completed items to the end
+  // If current year is complete, navigate to next incomplete year
+  const navigateToNextPending = useCallback(async () => {
+    // Update the current item status in local state to SYNCED
+    const updatedItems = items.map((item) =>
+      item.staging.id === selectedItemId
+        ? { ...item, staging: { ...item.staging, status: "SYNCED" } }
+        : item
     );
 
-    // Look for next pending item after current
-    for (let i = currentIndex + 1; i < items.length; i++) {
-      if (items[i].legacy !== null && items[i].staging.status !== "SYNCED") {
-        setSelectedItemId(items[i].staging.id);
-        return;
-      }
+    // Reorder: PENDING items first, then SYNCED
+    const reorderedItems = [
+      ...updatedItems.filter((i) => i.staging.status !== "SYNCED"),
+      ...updatedItems.filter((i) => i.staging.status === "SYNCED"),
+    ];
+
+    setItems(reorderedItems);
+
+    // Find next pending item in the reordered list (current page/year)
+    const nextPending = reorderedItems.find(
+      (i) => i.legacy !== null && i.staging.status !== "SYNCED"
+    );
+
+    if (nextPending) {
+      setSelectedItemId(nextPending.staging.id);
     }
 
-    // Look for pending items before current (wrap around on same page)
-    for (let i = 0; i < currentIndex; i++) {
-      if (items[i].legacy !== null && items[i].staging.status !== "SYNCED") {
-        setSelectedItemId(items[i].staging.id);
-        return;
+    // Refresh years to get updated completion status
+    const updatedYears = await fetchYears();
+
+    // If no pending items on current page, check if we should go to next year
+    if (!nextPending && updatedYears.length > 0) {
+      // Find first incomplete year
+      const nextIncompleteYear = updatedYears.find((y) => !y.complete);
+
+      if (nextIncompleteYear && nextIncompleteYear.ano !== selectedYear) {
+        // Navigate to the next incomplete year
+        setSelectedYear(nextIncompleteYear.ano);
+        setSelectedItemId(null);
+        setPagination((prev) => ({ ...prev, page: 1 }));
       }
     }
-
-    // If no pending items on current page, check if we need to go to next page
-    // For simplicity, just refresh to update the list and let the user navigate
-    // The checkAllEditableComplete will show the success message if all are done
-    checkAllEditableComplete(items);
-  }, [items, selectedItemId]);
+  }, [items, selectedItemId, fetchYears, selectedYear]);
 
   const selectedItem = items.find((i) => i.staging.id === selectedItemId);
 
@@ -267,8 +331,9 @@ export default function ReviewPage({
     (direction: "prev" | "next") => {
       if (availableYears.length <= 1) return;
 
-      // Build the list: [null (Todos), ...years]
-      const yearOptions: (string | null)[] = [null, ...availableYears];
+      // Build the list: [null (Todos), ...year strings]
+      const yearStrings = availableYears.map((y) => y.ano);
+      const yearOptions: (string | null)[] = [null, ...yearStrings];
       const currentIndex = yearOptions.findIndex((y) => y === selectedYear);
 
       let newIndex: number;
@@ -359,22 +424,29 @@ export default function ReviewPage({
               >
                 Todos
               </button>
-              {availableYears.map((year) => (
+              {availableYears.map((yearData) => (
                 <button
-                  key={year}
+                  key={yearData.ano}
                   onClick={() => {
-                    setSelectedYear(year);
+                    setSelectedYear(yearData.ano);
                     setSelectedItemId(null);
                     setPagination((prev) => ({ ...prev, page: 1 }));
                   }}
                   className={clsx(
-                    "px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
-                    selectedYear === year
-                      ? "bg-blue-600 text-white"
+                    "px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5",
+                    selectedYear === yearData.ano
+                      ? yearData.complete
+                        ? "bg-green-600 text-white"
+                        : "bg-blue-600 text-white"
+                      : yearData.complete
+                      ? "bg-green-100 text-green-700 hover:bg-green-200"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   )}
                 >
-                  {year}
+                  {yearData.complete && (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  {yearData.ano}
                 </button>
               ))}
             </div>
@@ -565,8 +637,8 @@ export default function ReviewPage({
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-8">
-          {/* Success message when all editable items are complete */}
-          {allEditableComplete && (
+          {/* Success message when all items in the entire batch are complete */}
+          {allEditableComplete && batchStatus && (
             <div className="max-w-5xl mx-auto mb-6">
               <div className="bg-green-50 border border-green-200 rounded-xl p-6 flex items-center gap-4">
                 <div className="bg-green-100 rounded-full p-3">
@@ -574,12 +646,41 @@ export default function ReviewPage({
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-green-800">
-                    🎉 Todas as alterações foram processadas!
+                    🎉 Todas as alterações do lote foram processadas!
                   </h3>
                   <p className="text-sm text-green-700 mt-1">
-                    Todos os itens editáveis desta página foram concluídos. Você
-                    pode continuar navegando ou voltar ao dashboard.
+                    Todos os {batchStatus.total} itens do lote foram concluídos.
+                    Você pode voltar ao dashboard.
                   </p>
+                  <Link
+                    href="/"
+                    className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Voltar ao Dashboard
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Progress indicator when not all complete */}
+          {batchStatus && !allEditableComplete && (
+            <div className="max-w-5xl mx-auto mb-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+                <span className="text-sm text-blue-800">
+                  Progresso do lote: <strong>{batchStatus.synced}</strong> de{" "}
+                  <strong>{batchStatus.total}</strong> itens concluídos
+                </span>
+                <div className="w-32 h-2 bg-blue-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 transition-all duration-300"
+                    style={{
+                      width: `${
+                        (batchStatus.synced / batchStatus.total) * 100
+                      }%`,
+                    }}
+                  />
                 </div>
               </div>
             </div>

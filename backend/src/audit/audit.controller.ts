@@ -25,6 +25,11 @@ export class AuditController {
     return this.auditService.getBatchYears(batchId);
   }
 
+  @Get('batch/:batchId/status')
+  getBatchStatus(@Param('batchId') batchId: string) {
+    return this.auditService.getBatchStatus(batchId);
+  }
+
   @Get(':batchId')
   getBatch(
     @Param('batchId') batchId: string,

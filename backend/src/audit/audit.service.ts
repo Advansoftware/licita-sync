@@ -30,16 +30,52 @@ export class AuditService {
   }
 
   async getBatchYears(batchId: string) {
-    // Get distinct years for a batch
+    // Get distinct years for a batch with their completion status
     const years = await this.stagingRepo
       .createQueryBuilder('item')
-      .select('DISTINCT item.ano', 'ano')
+      .select('item.ano', 'ano')
+      .addSelect('COUNT(*)', 'total')
+      .addSelect('SUM(CASE WHEN item.status = :synced THEN 1 ELSE 0 END)', 'synced')
       .where('item.batchId = :batchId', { batchId })
       .andWhere('item.ano IS NOT NULL')
+      .setParameter('synced', 'SYNCED')
+      .groupBy('item.ano')
       .orderBy('item.ano', 'ASC')
       .getRawMany();
 
-    return years.map(y => y.ano).filter(Boolean);
+    return years.map(y => ({
+      ano: y.ano,
+      total: parseInt(y.total, 10),
+      synced: parseInt(y.synced, 10),
+      complete: parseInt(y.synced, 10) === parseInt(y.total, 10)
+    })).filter(y => y.ano);
+  }
+
+  async getBatchStatus(batchId: string) {
+    // Get status counts for the entire batch (all years)
+    const result = await this.stagingRepo
+      .createQueryBuilder('item')
+      .select('item.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('item.batchId = :batchId', { batchId })
+      .groupBy('item.status')
+      .getRawMany();
+
+    const statusMap: Record<string, number> = result.reduce((acc: Record<string, number>, r: any) => {
+      acc[r.status] = parseInt(r.count, 10);
+      return acc;
+    }, {});
+
+    const total = Object.values(statusMap).reduce((a: number, b: number) => a + b, 0);
+    const pending = statusMap['PENDING'] || 0;
+    const synced = statusMap['SYNCED'] || 0;
+
+    return {
+      total,
+      pending,
+      synced,
+      allComplete: pending === 0 && total > 0
+    };
   }
 
   async getLegacyColumns() {
