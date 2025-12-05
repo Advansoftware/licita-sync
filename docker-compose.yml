@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -15,8 +15,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-
-
   backend:
     build:
       context: ./backend
@@ -30,7 +28,7 @@ services:
       - DATABASE_USER=user
       - DATABASE_PASSWORD=password
       - DATABASE_NAME=staging_db
-      
+
       # --- CONFIGURAÇÃO DO BANCO DE PRODUÇÃO (LEGADO) ---
       - LEGACY_DB_HOST=162.240.98.204
       - LEGACY_DB_PORT=3306
@@ -41,6 +39,8 @@ services:
       - PORT=${BACKEND_PORT:-3000}
     depends_on:
       - postgres
+    networks:
+      - licita-network
 
   frontend:
     build:
@@ -62,4 +62,3 @@ networks:
 
 volumes:
   postgres_data:
-

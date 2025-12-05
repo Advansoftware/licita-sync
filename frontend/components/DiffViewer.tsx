@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, AlertTriangle, ArrowRight, X, Edit2 } from "lucide-react";
+import {
+  Check,
+  AlertTriangle,
+  ArrowRight,
+  X,
+  Edit2,
+  CheckCircle2,
+} from "lucide-react";
 import { clsx } from "clsx";
 import axios from "axios";
 
@@ -35,14 +42,20 @@ export function DiffViewer({
   mapping,
   keyField,
 }: DiffViewerProps) {
+  // Check if there are real differences between staging and legacy
+  const hasTituloDiff = item.legacy?.titulo !== item.staging.titulo;
+  const hasDescricaoDiff = item.legacy?.descricao !== item.staging.descricao;
+  const hasAnyDiff = hasTituloDiff || hasDescricaoDiff;
+
   const [selectedChanges, setSelectedChanges] = useState<{
     [key: string]: boolean;
   }>({
-    titulo: item.legacy?.titulo !== item.staging.titulo,
-    descricao: item.legacy?.descricao !== item.staging.descricao,
+    titulo: hasTituloDiff,
+    descricao: hasDescricaoDiff,
   });
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isMarkingComplete, setIsMarkingComplete] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Edit mode states
@@ -54,18 +67,59 @@ export function DiffViewer({
   );
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+  // Track if user has made edits
+  const [hasUserEdited, setHasUserEdited] = useState(false);
+
   // Reset states when item changes
   useEffect(() => {
+    const tituloDiff = item.legacy?.titulo !== item.staging.titulo;
+    const descricaoDiff = item.legacy?.descricao !== item.staging.descricao;
+
     setSelectedChanges({
-      titulo: item.legacy?.titulo !== item.staging.titulo,
-      descricao: item.legacy?.descricao !== item.staging.descricao,
+      titulo: tituloDiff,
+      descricao: descricaoDiff,
     });
     setEditedTitulo(item.staging.titulo);
     setEditedDescricao(item.staging.descricao);
     setIsEditingTitulo(false);
     setIsEditingDescricao(false);
     setShowConfirmModal(false);
+    setHasUserEdited(false);
   }, [item.staging.id]);
+
+  // Determine button states based on differences and edits
+  const hasChangesToSync =
+    hasAnyDiff ||
+    hasUserEdited ||
+    selectedChanges.titulo ||
+    selectedChanges.descricao;
+  const canMarkComplete =
+    !hasAnyDiff && !hasUserEdited && item.staging.status !== "SYNCED";
+  const canConfirmChanges =
+    hasChangesToSync && item.staging.status !== "SYNCED";
+
+  const handleMarkComplete = async () => {
+    setIsMarkingComplete(true);
+    try {
+      // Just mark as synced without updating any fields
+      await axios.patch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+        }/audit/sync/${item.staging.id}`,
+        {
+          fieldsToUpdate: [], // No fields to update
+          mapping,
+          keyField,
+        }
+      );
+      onSync();
+    } catch (error) {
+      console.error("Failed to mark complete", error);
+      alert("Erro ao marcar como concluído");
+    } finally {
+      setIsMarkingComplete(false);
+    }
+  };
 
   const handleConfirmSync = async () => {
     setIsSyncing(true);
@@ -114,6 +168,12 @@ export function DiffViewer({
 
       // Update local state
       item.staging[field] = field === "titulo" ? editedTitulo : editedDescricao;
+
+      // Mark that user has edited
+      setHasUserEdited(true);
+
+      // Update selected changes to include edited field
+      setSelectedChanges((prev) => ({ ...prev, [field]: true }));
 
       // Exit edit mode
       if (field === "titulo") setIsEditingTitulo(false);
@@ -386,21 +446,75 @@ export function DiffViewer({
           </div>
         </div>
 
-        <div className="flex justify-end pt-4 border-t mt-2">
-          <button
-            onClick={() => setShowConfirmModal(true)}
-            disabled={isSyncing || item.staging.status === "SYNCED"}
-            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isSyncing ? (
-              "Sincronizando..."
+        <div className="flex justify-between items-center pt-4 border-t mt-2">
+          {/* Status indicator */}
+          <div className="text-sm">
+            {!hasAnyDiff && !hasUserEdited ? (
+              <span className="text-green-600 flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" />
+                Dados iguais - sem divergências
+              </span>
             ) : (
-              <>
-                <Check className="w-4 h-4" />
-                Confirmar Alterações & Atualizar Produção
-              </>
+              <span className="text-orange-600 flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" />
+                {hasUserEdited ? "Edição pendente" : "Divergências encontradas"}
+              </span>
             )}
-          </button>
+          </div>
+
+          <div className="flex gap-3">
+            {/* Mark as Complete button - enabled only when no differences */}
+            <button
+              onClick={handleMarkComplete}
+              disabled={!canMarkComplete || isMarkingComplete || isSyncing}
+              className={clsx(
+                "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
+                canMarkComplete
+                  ? "bg-green-600 text-white hover:bg-green-700"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              )}
+              title={
+                canMarkComplete
+                  ? "Marcar como concluído sem alterações"
+                  : "Há divergências que precisam ser resolvidas"
+              }
+            >
+              {isMarkingComplete ? (
+                "Marcando..."
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  Marcar como Concluído
+                </>
+              )}
+            </button>
+
+            {/* Confirm Changes button - enabled only when there are differences */}
+            <button
+              onClick={() => setShowConfirmModal(true)}
+              disabled={!canConfirmChanges || isSyncing || isMarkingComplete}
+              className={clsx(
+                "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
+                canConfirmChanges
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              )}
+              title={
+                canConfirmChanges
+                  ? "Confirmar alterações e atualizar produção"
+                  : "Não há alterações para confirmar"
+              }
+            >
+              {isSyncing ? (
+                "Sincronizando..."
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  Confirmar Alterações
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 

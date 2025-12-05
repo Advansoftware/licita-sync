@@ -22,7 +22,7 @@ export class StagingItem {
   @Column()
   titulo: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ano: string | null; // Ano da licitação (ex: "2021")
 
   @Column({
