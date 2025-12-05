@@ -169,23 +169,32 @@ export default function ReviewPage({
       // 1. First PENDING item (has legacy and not SYNCED)
       // 2. First item without legacy (needs resolution)
       // 3. First item (all complete)
-      if (data.length > 0 && !selectedItemId && !pendingNavigationRef.current) {
-        // Priority 1: First pending item (has legacy and not synced)
-        const firstPending = data.find(
-          (i: AuditItem) => i.legacy !== null && i.staging.status !== "SYNCED"
-        );
+      // Only auto-select if not navigating via keyboard or if this is initial load/year change
+      if (data.length > 0 && !pendingNavigationRef.current) {
+        // Check if current selection exists in the new data
+        const currentSelectionExists =
+          selectedItemId &&
+          data.some((i: AuditItem) => i.staging.id === selectedItemId);
 
-        if (firstPending) {
-          setSelectedItemId(firstPending.staging.id);
-        } else {
-          // Priority 2: First item without legacy (needs resolution)
-          const firstMissing = data.find((i: AuditItem) => i.legacy === null);
+        // Only auto-select if no current selection OR selection not in current data (year changed)
+        if (!selectedItemId || !currentSelectionExists) {
+          // Priority 1: First pending item (has legacy and not synced)
+          const firstPending = data.find(
+            (i: AuditItem) => i.legacy !== null && i.staging.status !== "SYNCED"
+          );
 
-          if (firstMissing) {
-            setSelectedItemId(firstMissing.staging.id);
+          if (firstPending) {
+            setSelectedItemId(firstPending.staging.id);
           } else {
-            // Priority 3: All complete, just select first
-            setSelectedItemId(data[0].staging.id);
+            // Priority 2: First item without legacy (needs resolution)
+            const firstMissing = data.find((i: AuditItem) => i.legacy === null);
+
+            if (firstMissing) {
+              setSelectedItemId(firstMissing.staging.id);
+            } else {
+              // Priority 3: All complete, just select first
+              setSelectedItemId(data[0].staging.id);
+            }
           }
         }
       }
