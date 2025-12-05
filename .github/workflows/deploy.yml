@@ -33,6 +33,9 @@ jobs:
             cd /root/ambiente-prefeitura/licita-sync
             git pull origin master
 
+            echo "🔧 Configurando ambiente de produção..."
+            cp .env.production .env
+
             echo "🔧 Recriando containers com build limpo..."
             docker compose up -d --build
 

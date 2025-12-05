@@ -22,9 +22,11 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: licita_backend
-    network_mode: host
+    network_mode: "${BACKEND_NETWORK_MODE:-bridge}"
+    ports:
+      - "5001:3000"
     environment:
-      - DATABASE_HOST=localhost
+      - DATABASE_HOST=${DATABASE_HOST:-postgres}
       - DATABASE_PORT=5432
       - DATABASE_USER=user
       - DATABASE_PASSWORD=password
@@ -37,16 +39,18 @@ services:
       - LEGACY_DB_PASSWORD=0PmW%%ViB$$@; # $ escaped as $$
       - LEGACY_DB_NAME=wwbraz_prefeitura
       - LEGACY_TABLE_NAME=licitacao
-      - PORT=5001
+      - PORT=${BACKEND_PORT:-3000}
     depends_on:
       - postgres
+    networks:
+      - licita-network
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=https://apiauditoria.visitebrazopolis.com.br
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:5001}
     container_name: licita_frontend
     ports:
       - "5002:3000"
