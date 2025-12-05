@@ -1,0 +1,44 @@
+name: Deploy LicitaSync to VPS
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known_hosts
+        run: |
+          if ! ssh-keygen -F 162.240.98.204 > /dev/null; then
+            ssh-keyscan -p 22022 162.240.98.204 >> ~/.ssh/known_hosts
+          fi
+
+      - name: Deploy LicitaSync to VPS
+        run: |
+          ssh -p 22022 root@162.240.98.204 << 'EOF'
+            set -e  # Se algum comando falhar, aborta
+
+            echo "📦 Atualizando LicitaSync..."
+            cd /root/ambiente-prefeitura/licita-sync
+            git pull origin master
+
+            echo "🔧 Recriando containers com build limpo..."
+            docker compose up -d --build
+
+            echo "🧹 Limpando imagens e cache antigas..."
+            docker image prune -af
+            docker builder prune -af
+
+            echo "✅ Deploy do LicitaSync concluído com sucesso."
+          EOF

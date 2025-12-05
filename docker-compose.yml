@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: licita_postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: staging_db
+    ports:
+      - "5432:5432"
+    networks:
+      - licita-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: licita_backend
+    ports:
+      - "5001:3000"
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=user
+      - DATABASE_PASSWORD=password
+      - DATABASE_NAME=staging_db
+      
+      # --- CONFIGURAÇÃO DO BANCO DE PRODUÇÃO (LEGADO) ---
+      - LEGACY_DB_HOST=162.240.98.204
+      - LEGACY_DB_PORT=3306
+      - LEGACY_DB_USER=wwbraz_bruno
+      - LEGACY_DB_PASSWORD=0PmW%%ViB$$@; # $ escaped as $$
+      - LEGACY_DB_NAME=wwbraz_prefeitura
+      - LEGACY_TABLE_NAME=licitacao
+    depends_on:
+      - postgres
+      # - mysql # Removido pois agora usamos banco externo
+    networks:
+      - licita-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: licita_frontend
+    ports:
+      - "5002:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://162.240.98.204:5001
+    depends_on:
+      - backend
+    networks:
+      - licita-network
+
+networks:
+  licita-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+
