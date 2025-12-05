@@ -46,7 +46,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://162.240.98.204:5001
+        - NEXT_PUBLIC_API_URL=https://apiauditoria.visitebrazopolis.com.br
     container_name: licita_frontend
     ports:
       - "5002:3000"

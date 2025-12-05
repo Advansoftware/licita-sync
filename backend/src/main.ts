@@ -10,6 +10,7 @@ async function bootstrap() {
       'http://localhost:5002',
       'http://localhost:3000',
       'https://auditoria.visitebrazopolis.com.br',
+      'https://apiauditoria.visitebrazopolis.com.br',
       'http://162.240.98.204:5002',
     ],
     credentials: true,
