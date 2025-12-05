@@ -5,6 +5,7 @@ import { ScraperModule } from './scraper/scraper.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { StagingItem } from './audit/entities/staging-item.entity';
+import { BatchConfig } from './audit/entities/batch-config.entity';
 import { LegacyLicitacao } from './audit/entities/legacy-licitacao.entity';
 
 @Module({
@@ -18,7 +19,7 @@ import { LegacyLicitacao } from './audit/entities/legacy-licitacao.entity';
       username: process.env.DATABASE_USER || 'user',
       password: process.env.DATABASE_PASSWORD || 'password',
       database: process.env.DATABASE_NAME || 'staging_db',
-      entities: [StagingItem],
+      entities: [StagingItem, BatchConfig],
       synchronize: true, // Dev only
     }),
     // Legacy Connection (MySQL - Production)
