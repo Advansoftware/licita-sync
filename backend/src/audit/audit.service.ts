@@ -81,7 +81,13 @@ export class AuditService {
 
     const legacyKeyColumn = keyColumnMap[keyField] || map.edital;
 
+    console.log('DEBUG - Key field matching:');
+    console.log('  keyField (from staging):', keyField);
+    console.log('  legacyKeyColumn (in DB):', legacyKeyColumn);
+    console.log('  map:', map);
+
     const keys = stagingItems.map(i => i[keyField]).filter(e => e);
+    console.log('  keys to search:', keys.slice(0, 5)); // Show first 5 keys
 
     let legacyItems: any[] = [];
     if (keys.length > 0) {
@@ -89,10 +95,12 @@ export class AuditService {
       // TypeORM query builder or raw query with IN (?) is tricky with array.
       // We will use string construction for the IN clause but parameterized values.
       const placeholders = keys.map(() => '?').join(',');
-      legacyItems = await this.legacyRepo.query(
-        `SELECT * FROM ${tableName} WHERE ${legacyKeyColumn} IN (${placeholders})`,
-        keys
-      );
+      const query = `SELECT * FROM ${tableName} WHERE ${legacyKeyColumn} IN (${placeholders})`;
+      console.log('  SQL query:', query);
+      console.log('  SQL params:', keys.slice(0, 5));
+
+      legacyItems = await this.legacyRepo.query(query, keys);
+      console.log('  Found legacy items:', legacyItems.length);
     }
 
     // Map legacy items by key for O(1) lookup
