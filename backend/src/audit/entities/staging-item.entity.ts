@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 
 export enum AuditStatus {
   PENDING = 'PENDING',
@@ -37,4 +37,7 @@ export class StagingItem {
 
   @Column({ type: 'text', nullable: true })
   sourceUrl: string | null; // URL de origem do scraping
+
+  @CreateDateColumn()
+  createdAt: Date;
 }

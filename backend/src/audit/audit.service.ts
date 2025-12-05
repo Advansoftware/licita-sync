@@ -15,12 +15,15 @@ export class AuditService {
 
   async getBatches() {
     // Get distinct batchIds with their sourceUrl (from the first item of each batch)
+    // Order by most recent first (MAX createdAt)
     const batches = await this.stagingRepo
       .createQueryBuilder('item')
       .select('item.batchId', 'batchId')
       .addSelect('MIN(item.sourceUrl)', 'sourceUrl')
       .addSelect('COUNT(item.id)', 'itemCount')
+      .addSelect('MAX(item.createdAt)', 'createdAt')
       .groupBy('item.batchId')
+      .orderBy('MAX(item.createdAt)', 'DESC')
       .getRawMany();
 
     return batches;
