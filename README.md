@@ -17,7 +17,6 @@ Sistema de Auditoria e Sincronização de Licitações
 Usuário: admin
 Senha: licita@2024
 ```
-teste
 ## 🛠️ Tecnologias
 
 ### Backend
