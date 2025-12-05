@@ -206,35 +206,45 @@ export class AuditService {
     console.log('  legacyKeyColumn (in DB):', legacyKeyColumn);
     console.log('  map:', map);
 
-    const keys = stagingItems.map(i => i[keyField]).filter(e => e);
-    console.log('  keys to search:', keys.slice(0, 5)); // Show first 5 keys
+    // Helper function to normalize spaces (multiple spaces -> single space)
+    const normalizeSpaces = (str: string) => str?.replace(/\s+/g, ' ').trim() || '';
+
+    // Get keys and create a map of normalized key -> original key for lookup
+    const rawKeys = stagingItems.map(i => i[keyField]).filter(e => e);
+    const normalizedKeys = rawKeys.map(k => normalizeSpaces(k));
+    const keyNormalizationMap = new Map<string, string>(); // normalized -> original staging key
+    rawKeys.forEach((k, i) => keyNormalizationMap.set(normalizeSpaces(k), k));
+
+    console.log('  keys to search (normalized):', normalizedKeys.slice(0, 5)); // Show first 5 keys
 
     let legacyItems: any[] = [];
-    if (keys.length > 0) {
+    if (normalizedKeys.length > 0) {
       // WARNING: Ensure keys are safe strings or use parameterized query carefully.
       // TypeORM query builder or raw query with IN (?) is tricky with array.
       // We will use string construction for the IN clause but parameterized values.
-      const placeholders = keys.map(() => '?').join(',');
+      const placeholders = normalizedKeys.map(() => '?').join(',');
       const query = `SELECT * FROM ${tableName} WHERE ${legacyKeyColumn} IN (${placeholders})`;
       console.log('  SQL query:', query);
-      console.log('  SQL params:', keys.slice(0, 5));
+      console.log('  SQL params:', normalizedKeys.slice(0, 5));
 
-      legacyItems = await this.legacyRepo.query(query, keys);
+      legacyItems = await this.legacyRepo.query(query, normalizedKeys);
       console.log('  Found legacy items:', legacyItems.length);
     }
 
-    // Map legacy items by key for O(1) lookup
+    // Map legacy items by normalized key for O(1) lookup
     const legacyMap = new Map();
     legacyItems.forEach(i => {
-      legacyMap.set(i[legacyKeyColumn], i);
+      const normalizedLegacyKey = normalizeSpaces(i[legacyKeyColumn]);
+      legacyMap.set(normalizedLegacyKey, i);
     });
 
     for (const item of stagingItems) {
       const keyValue = item[keyField];
-      const legacyItem = legacyMap.get(keyValue);
+      const normalizedKeyValue = normalizeSpaces(keyValue);
+      const legacyItem = legacyMap.get(normalizedKeyValue);
 
       if (!legacyItem) {
-        console.log(`  No match found for ${keyField}="${keyValue}"`);
+        console.log(`  No match found for ${keyField}="${keyValue}" (normalized: "${normalizedKeyValue}")`);
       }
 
       const normalizedLegacy = legacyItem ? {
@@ -246,10 +256,10 @@ export class AuditService {
 
       console.log(`  Staging: ${keyField}="${keyValue}" => Legacy: ${normalizedLegacy ? normalizedLegacy.titulo : 'NULL'}`);
 
-      // Check if there are any differences
+      // Check if there are any differences (normalize spaces for comparison too)
       const hasDiff = !normalizedLegacy ||
-        normalizedLegacy.descricao !== item.descricao ||
-        normalizedLegacy.titulo !== item.titulo;
+        normalizeSpaces(normalizedLegacy.descricao || '') !== normalizeSpaces(item.descricao || '') ||
+        normalizeSpaces(normalizedLegacy.titulo || '') !== normalizeSpaces(item.titulo || '');
 
       // Auto-mark as SYNCED if legacy exists and there are no differences
       // Only update if current status is PENDING
