@@ -113,6 +113,10 @@ export class AuditService {
       const keyValue = item[keyField];
       const legacyItem = legacyMap.get(keyValue);
 
+      if (!legacyItem) {
+        console.log(`  No match found for ${keyField}="${keyValue}"`);
+      }
+
       const normalizedLegacy = legacyItem ? {
         id: legacyItem.id,
         titulo: legacyItem[map.titulo],
