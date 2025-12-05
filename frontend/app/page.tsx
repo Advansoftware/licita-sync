@@ -467,7 +467,7 @@ export default function Dashboard() {
 
         {/* Import Modal - Configure mapping before import */}
         {showImportModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl w-full max-w-lg">
               <div className="flex justify-between items-center p-6 border-b">
                 <h3 className="text-lg font-bold text-gray-900">
@@ -605,7 +605,7 @@ export default function Dashboard() {
 
         {/* Edit Mapping Modal */}
         {editingBatch && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl w-full max-w-lg">
               <div className="flex justify-between items-center p-6 border-b">
                 <h3 className="text-lg font-bold text-gray-900">
@@ -740,7 +740,7 @@ export default function Dashboard() {
 
         {/* HTML Preview Modal */}
         {showHtmlPreview && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] flex flex-col">
               <div className="flex justify-between items-center p-6 border-b">
                 <div>
