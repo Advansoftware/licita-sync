@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Info,
   Calendar,
+  PartyPopper,
 } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -54,6 +55,9 @@ export default function ReviewPage({
     "first" | "last" | null
   >(null);
   const pendingNavigationRef = useRef<"first" | "last" | null>(null);
+
+  // Track if all editable items are complete
+  const [allEditableComplete, setAllEditableComplete] = useState(false);
 
   // Year filter state
   const [availableYears, setAvailableYears] = useState<string[]>([]);
@@ -144,6 +148,9 @@ export default function ReviewPage({
         setSelectedItemId(data[0].staging.id);
       }
 
+      // Check if all editable items are complete
+      checkAllEditableComplete(data);
+
       return data;
     } catch (error) {
       console.error("Failed to fetch items", error);
@@ -151,6 +158,44 @@ export default function ReviewPage({
       setIsLoading(false);
     }
   };
+
+  // Check if all items with legacy (editable) are complete
+  const checkAllEditableComplete = (currentItems: AuditItem[]) => {
+    const editableItems = currentItems.filter((item) => item.legacy !== null);
+    const allComplete =
+      editableItems.length > 0 &&
+      editableItems.every((item) => item.staging.status === "SYNCED");
+    setAllEditableComplete(allComplete);
+  };
+
+  // Find and navigate to next pending item (has legacy and not synced)
+  const navigateToNextPending = useCallback(() => {
+    // First, look for pending items in current page after current selection
+    const currentIndex = items.findIndex(
+      (i) => i.staging.id === selectedItemId
+    );
+
+    // Look for next pending item after current
+    for (let i = currentIndex + 1; i < items.length; i++) {
+      if (items[i].legacy !== null && items[i].staging.status !== "SYNCED") {
+        setSelectedItemId(items[i].staging.id);
+        return;
+      }
+    }
+
+    // Look for pending items before current (wrap around on same page)
+    for (let i = 0; i < currentIndex; i++) {
+      if (items[i].legacy !== null && items[i].staging.status !== "SYNCED") {
+        setSelectedItemId(items[i].staging.id);
+        return;
+      }
+    }
+
+    // If no pending items on current page, check if we need to go to next page
+    // For simplicity, just refresh to update the list and let the user navigate
+    // The checkAllEditableComplete will show the success message if all are done
+    checkAllEditableComplete(items);
+  }, [items, selectedItemId]);
 
   const selectedItem = items.find((i) => i.staging.id === selectedItemId);
 
@@ -520,11 +565,32 @@ export default function ReviewPage({
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-8">
+          {/* Success message when all editable items are complete */}
+          {allEditableComplete && (
+            <div className="max-w-5xl mx-auto mb-6">
+              <div className="bg-green-50 border border-green-200 rounded-xl p-6 flex items-center gap-4">
+                <div className="bg-green-100 rounded-full p-3">
+                  <PartyPopper className="w-8 h-8 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-green-800">
+                    🎉 Todas as alterações foram processadas!
+                  </h3>
+                  <p className="text-sm text-green-700 mt-1">
+                    Todos os itens editáveis desta página foram concluídos. Você
+                    pode continuar navegando ou voltar ao dashboard.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {selectedItem ? (
             <div className="max-w-5xl mx-auto">
               <DiffViewer
                 item={selectedItem}
                 onSync={() => fetchItems(pagination.page)}
+                onComplete={navigateToNextPending}
                 mapping={mapping}
                 keyField={keyField}
               />

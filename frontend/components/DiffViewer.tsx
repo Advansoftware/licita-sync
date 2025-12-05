@@ -32,6 +32,7 @@ interface DiffViewerProps {
     diff: boolean;
   };
   onSync: () => void;
+  onComplete?: () => void; // Called after marking complete or syncing to navigate to next
   mapping: { edital?: string; titulo?: string; descricao?: string };
   keyField: string;
 }
@@ -39,6 +40,7 @@ interface DiffViewerProps {
 export function DiffViewer({
   item,
   onSync,
+  onComplete,
   mapping,
   keyField,
 }: DiffViewerProps) {
@@ -113,6 +115,10 @@ export function DiffViewer({
         }
       );
       onSync();
+      // Navigate to next pending item after a brief delay
+      if (onComplete) {
+        setTimeout(() => onComplete(), 100);
+      }
     } catch (error) {
       console.error("Failed to mark complete", error);
       alert("Erro ao marcar como concluído");
@@ -139,6 +145,10 @@ export function DiffViewer({
         }
       );
       onSync();
+      // Navigate to next pending item after a brief delay
+      if (onComplete) {
+        setTimeout(() => onComplete(), 100);
+      }
     } catch (error) {
       console.error("Failed to sync", error);
       alert("Erro ao sincronizar");
