@@ -34,4 +34,7 @@ export class StagingItem {
 
   @Column({ nullable: true })
   batchId: string; // Para agrupar importações
+
+  @Column({ type: 'text', nullable: true })
+  sourceUrl: string | null; // URL de origem do scraping
 }

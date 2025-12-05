@@ -14,11 +14,16 @@ export class AuditService {
   ) { }
 
   async getBatches() {
-    return this.stagingRepo
+    // Get distinct batchIds with their sourceUrl (from the first item of each batch)
+    const batches = await this.stagingRepo
       .createQueryBuilder('item')
       .select('item.batchId', 'batchId')
-      .distinct(true)
+      .addSelect('MIN(item.sourceUrl)', 'sourceUrl')
+      .addSelect('COUNT(item.id)', 'itemCount')
+      .groupBy('item.batchId')
       .getRawMany();
+
+    return batches;
   }
 
   async getLegacyColumns() {

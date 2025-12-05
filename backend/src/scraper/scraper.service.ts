@@ -70,6 +70,7 @@ export class ScraperService {
         item.batchId = batchId;
         item.status = AuditStatus.PENDING;
         item.data = ano || null;
+        item.sourceUrl = url;
         items.push(item);
         console.log('  ✓ Item added to batch');
       } else {

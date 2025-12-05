@@ -12,9 +12,15 @@ interface ItemData {
   edital: string;
 }
 
+interface StagingData extends ItemData {
+  status: string;
+  processo?: string;
+  sourceUrl?: string;
+}
+
 interface DiffViewerProps {
   item: {
-    staging: ItemData & { status: string };
+    staging: StagingData;
     legacy: ItemData | null;
     diff: boolean;
   };
@@ -152,6 +158,24 @@ export function DiffViewer({
               </strong>
             </p>
           </div>
+
+          {/* URL de Origem */}
+          {item.staging.sourceUrl && (
+            <div className="bg-blue-50 p-4 rounded border border-blue-200">
+              <p className="text-xs text-blue-600 uppercase font-semibold mb-2">
+                URL de Origem
+              </p>
+              <a
+                href={item.staging.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-700 hover:text-blue-900 underline break-all"
+              >
+                {item.staging.sourceUrl}
+              </a>
+            </div>
+          )}
+
           <div className="bg-white p-4 rounded border border-red-100">
             <p className="text-xs text-gray-500 uppercase font-semibold mb-2">
               Dados do Site (Staging)
@@ -162,10 +186,14 @@ export function DiffViewer({
             <p className="text-sm text-gray-700 mt-1">
               <strong>Edital:</strong> {item.staging.edital}
             </p>
-            <p className="text-sm text-gray-700 mt-1">
-              <strong>Descrição:</strong>{" "}
-              {item.staging.descricao?.substring(0, 200)}...
-            </p>
+            <div className="mt-3">
+              <p className="text-xs text-gray-500 uppercase font-semibold mb-1">
+                Descrição Completa:
+              </p>
+              <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded border max-h-64 overflow-y-auto whitespace-pre-wrap">
+                {item.staging.descricao}
+              </div>
+            </div>
           </div>
         </div>
         <p className="text-sm text-red-600 mt-4">
